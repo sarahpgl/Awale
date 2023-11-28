@@ -9,6 +9,7 @@
 
 char clientNames[MAX_CLIENTS][MAX_NAME_LENGTH];
 int nbClients = 0;
+Client  clients[MAX_CLIENTS];
 
 
 static void init(void)
@@ -33,11 +34,37 @@ static void end(void)
 
 
 
+
 int addClients(const char *name){
    if(nbClients < MAX_CLIENTS){
       strncpy(clientNames[nbClients], name, MAX_NAME_LENGTH -1);
       clientNames[nbClients][MAX_NAME_LENGTH - 1] = '\0';
       nbClients ++; 
+
+      FILE * f;
+       char ligne[256];
+       int trouve =0;
+
+      f = fopen("statutsJoueurs.txt", "a+");
+    if (f != NULL)
+    {
+      while(fgets(ligne,sizeof(name), f) != NULL){
+         
+         
+        if(strstr(ligne, name)){
+            trouve =1;
+         }
+        
+         
+      }
+      if(trouve==0){
+         fprintf(f, "%s %d\n", name, 1);
+      }
+      
+      fclose(f);
+    }
+    else
+        perror("statusJoueurs.txt");
       return 0; //Succès de la connexion avec le pseudo 
    }else{
       return -1; //Echec de la connexion au serveur avec le speudo
@@ -169,6 +196,46 @@ static void app(void)
                   strncpy(buffer, client.name, BUF_SIZE - 1);
                   strncat(buffer, " Disconnected !", BUF_SIZE - strlen(buffer) - 1);
                   send_message_to_all_clients(clients, client, actual, buffer, 1);
+                  FILE * f;
+                  
+                  
+
+                  f = fopen("statutsJoueurs.txt", "a+");
+                  if (f != NULL)
+                  {
+                     char ligne[256];  // Taille maximale d'une ligne
+                     long positionDebut = -1;
+
+                     // Trouve la position du début de la ligne à remplacer
+                     while (fgets(ligne, sizeof(ligne), f) != NULL) {
+                        if (strstr(ligne, clients[i].name) != NULL) {
+                           positionDebut = ftell(f) - strlen(ligne);
+                           break;
+                        }
+                     }
+
+                     if (positionDebut != -1) {
+                      // Positionne le curseur à la position du début de la ligne
+                        fseek(f, positionDebut, SEEK_SET);
+
+                        // Supprime la ligne
+                        ftruncate(fileno(f), positionDebut);
+                        
+                        // Repositionne le curseur à la fin du fichier
+                        fseek(f, 0, SEEK_END);
+
+                        // Ajoute la nouvelle ligne à la fin du fichier
+                        char * s =strcat(clients[i].name," 0");
+                        fputs(s, f);
+
+                     // Tronque le fichier à la nouvelle position si la nouvelle ligne est plus courte que l'ancienne
+                     
+                     
+                     fclose(f);
+                  }
+                  else
+                     perror("statusJoueurs.txt");
+
                }
                else{
                   
@@ -220,7 +287,7 @@ static void app(void)
             }
          }
       }
-   }
+   }}
 
    clear_clients(clients, actual);
    end_connection(sock);
@@ -299,11 +366,15 @@ static int init_connection(void)
 static void end_connection(int sock)
 {
    closesocket(sock);
+
+   
+
 }
 
 static int read_client(SOCKET sock, char *buffer)
 {
    int n = 0;
+   
 
    if((n = recv(sock, buffer, BUF_SIZE - 1, 0)) < 0)
    {
